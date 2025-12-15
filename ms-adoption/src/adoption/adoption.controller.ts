@@ -14,13 +14,22 @@ export class AdoptionController {
   constructor(
     private readonly idempotencyGuard: IdempotencyGuard,
     private readonly adoptionService: AdoptionService,
-    @Inject('ANIMAL_SERVICE') private readonly client: ClientProxy,
+    @Inject('ANIMAL_SERVICE') private readonly animalClient: ClientProxy,
+    @Inject('WEBHOOK_SERVICE') private readonly webhookClient: ClientProxy,
   ) {}
 
   @Post()
   async createAdoption(@Body() body: { animal_id: string; adopter_name: string }) {
     const adoption = await this.adoptionService.createAdoption(body);
-    this.client.emit('adoption.created', { animal_id: body.animal_id });
+    this.animalClient.emit('adoption.created', { animal_id: body.animal_id });
+    
+    // Emitir webhook a la misma queue para que WebhookEventsService lo procese
+    this.webhookClient.emit('adoption.created.webhook', {
+      ...body,
+      adoption_id: adoption.id,
+      correlation_id: adoption.id,
+    });
+    
     return adoption;
   }
 
@@ -32,9 +41,19 @@ export class AdoptionController {
     const msg = context.getMessage();
 
     await this.idempotencyGuard.run(payload.message_id, async () => {
-      await this.adoptionService.createAdoption(payload.data);
-      this.client.emit('adoption.created', payload.data);
-      console.log('✅ Adopción creada y evento emitido a ms-animal');
+      const adoption = await this.adoptionService.createAdoption(payload.data);
+      
+      // Emitir evento a ms-animal
+      this.animalClient.emit('adoption.created', payload.data);
+      
+      // Emitir evento para webhook (a adoption_queue)
+      this.webhookClient.emit('adoption.created.webhook', {
+        ...payload.data,
+        adoption_id: adoption?.id || payload.message_id,
+        correlation_id: payload.message_id,
+      });
+      
+      console.log('✅ Adopción creada y eventos emitidos (animal + webhook)');
     });
 
     channel.ack(msg);

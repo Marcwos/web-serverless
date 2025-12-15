@@ -1,10 +1,13 @@
-import { Controller } from '@nestjs/common';
-import { Ctx, EventPattern, Payload, RmqContext } from '@nestjs/microservices';
+import { Controller, Inject } from '@nestjs/common';
+import { Ctx, EventPattern, Payload, RmqContext, ClientProxy } from '@nestjs/microservices';
 import { AnimalService } from './animal.service';
 
 @Controller()
 export class AnimalConsumer {
-  constructor(private readonly animalService: AnimalService) {}
+  constructor(
+    private readonly animalService: AnimalService,
+    @Inject('WEBHOOK_SERVICE') private readonly client: ClientProxy,
+  ) {}
 
   // Listener para CREAR animales (desde ms-gateway)
   @EventPattern('animal.create')
@@ -25,6 +28,16 @@ export class AnimalConsumer {
       
       if (result.isNew) {
         console.log(`✅ Animal CREADO: ${result.animal.id}`);
+        
+        // Emitir evento webhook (nuevo)
+        this.client.emit('animal.created.webhook', {
+          animal_id: result.animal.id,
+          name: result.animal.name,
+          species: result.animal.species,
+          available: result.animal.available,
+          correlation_id: payload.message_id,
+        });
+        console.log('📤 Evento webhook emitido: animal.created.webhook');
       } else {
         console.log(`⚠️ Animal YA EXISTÍA: ${result.animal.id} (idempotencia aplicada)`);
       }
