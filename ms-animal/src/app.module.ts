@@ -6,6 +6,7 @@ import { ConfigModule } from '@nestjs/config';
 import { Animal } from './animal/animal.entity';
 import { AnimalConsumer } from './animal/animal.consumert';
 import { AnimalService } from './animal/animal.service';
+import { AnimalController } from './animal/animal.controller';
 import { WebhookModule } from './webhook/webhook.module';
 import { ClientsModule, Transport } from '@nestjs/microservices';
 
@@ -39,7 +40,7 @@ import { ClientsModule, Transport } from '@nestjs/microservices';
       },
     ]),
   ],
-  controllers: [AppController, AnimalConsumer],
+  controllers: [AppController, AnimalConsumer, AnimalController],
   providers: [AppService, AnimalService],
 })
 export class AppModule {}

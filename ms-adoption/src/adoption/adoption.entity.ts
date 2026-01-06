@@ -11,6 +11,6 @@ export class Adoption {
   @Column()
   adopter_name: string;
 
-  @Column({ default: 'PENDING' })
+  @Column({ default: 'COMPLETED' })
   status: string;
 }

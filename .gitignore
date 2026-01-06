@@ -32,3 +32,4 @@ Thumbs.db
 
 # Supabase local
 .supabase/
+docs/
