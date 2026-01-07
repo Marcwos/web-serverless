@@ -117,12 +117,14 @@ export class GeminiService {
     functionCalls: Array<{ name: string; args: any }>;
   }> {
     const sid = sessionId || 'default';
+    const context = this.getOrCreateConversation(sid);
     const contextInfo = this.getContextInfo(sid);
     
     console.log('\n🤖 Enviando mensaje a Gemini...');
     console.log(`   SessionId: ${sid}`);
     console.log(`   Mensaje: "${userMessage}"`);
     console.log(`   Tools disponibles: ${tools.map(t => t.name).join(', ')}`);
+    console.log(`   Historial previo: ${context.history.length} mensajes`);
     if (contextInfo) {
       console.log(`   Contexto previo: Sí (animales en memoria)`);
     }
@@ -155,7 +157,12 @@ Responde siempre en español de manera amigable y clara.`,
     });
 
     try {
-      const result = await model.generateContent(userMessage);
+      // USAR CHAT CON HISTORIAL en lugar de generateContent
+      const chat = model.startChat({
+        history: context.history,
+      });
+
+      const result = await chat.sendMessage(userMessage);
       const response = result.response;
       
       // Verificar si hay function calls
@@ -201,9 +208,14 @@ Responde siempre en español de manera amigable y clara.`,
   async continueWithToolResults(
     userMessage: string, 
     tools: any[],
-    toolResults: Array<{ name: string; result: any }>
+    toolResults: Array<{ name: string; result: any }>,
+    sessionId?: string
   ): Promise<string> {
     console.log('\n🤖 Continuando conversación con resultados de tools...');
+    
+    const sid = sessionId || 'default';
+    const context = this.getOrCreateConversation(sid);
+    const contextInfo = this.getContextInfo(sid);
 
     const geminiTools = this.convertToGeminiTools(tools);
 
@@ -212,11 +224,14 @@ Responde siempre en español de manera amigable y clara.`,
       tools: geminiTools,
       systemInstruction: `Eres un asistente para un sistema de adopción de animales.
 Responde siempre en español de manera amigable y clara.
-Usa los resultados de las herramientas para dar una respuesta completa al usuario.`,
+Usa los resultados de las herramientas para dar una respuesta completa al usuario.
+${contextInfo}`,
     });
 
-    // Construir el historial de la conversación
-    const chat = model.startChat();
+    // Construir el historial de la conversación CON EL HISTORIAL PREVIO
+    const chat = model.startChat({
+      history: context.history,
+    });
 
     // Enviar mensaje original
     await chat.sendMessage(userMessage);

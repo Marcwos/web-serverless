@@ -115,6 +115,7 @@ export class ChatController {
         body.message,
         tools,
         toolResults,
+        sessionId,
       );
 
       // Actualizar contexto de conversación
